@@ -14,32 +14,40 @@ class GolfDB(Dataset):
         self.seq_length = seq_length
         self.transform = transform
         self.train = train
+        self.clubs = ['driver', 'fairway', 'hybrid', 'iron', 'wedge']
 
     def __len__(self):
         return len(self.df)
 
     def __getitem__(self, idx):
         a = self.df.loc[idx, :]  # annotation info
+        
+        club_idx = self.clubs.index(a['club'])
+
         events = a['events']
         events -= events[0]  # now frame #s correspond to frames in preprocessed video clips
 
         images, labels = [], []
-        cap = cv2.VideoCapture(osp.join(self.vid_dir, '{}.mp4'.format(a['id'])))
+        cap = cv2.VideoCapture(osp.join(self.vid_dir, '{}.mp4'.format(a['id'])), cv2.CAP_ANY)
+      
 
         if self.train:
             # random starting position, sample 'seq_length' frames
             start_frame = np.random.randint(events[-1] + 1)
             cap.set(cv2.CAP_PROP_POS_FRAMES, start_frame)
             pos = start_frame
+            # print('sequence length = ', self.seq_length)
             while len(images) < self.seq_length:
                 ret, img = cap.read()
+                # print(ret, img)
                 if ret:
                     img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
                     images.append(img)
-                    if pos in events[1:-1]:
-                        labels.append(np.where(events[1:-1] == pos)[0][0])
-                    else:
-                        labels.append(8)
+                    # if pos in events[1:-1]:
+                    #     labels.append(np.where(events[1:-1] == pos)[0][0])
+                    # else:
+                    #     labels.append(8)
+                    labels.append(club_idx)
                     pos += 1
                 else:
                     cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
@@ -51,10 +59,11 @@ class GolfDB(Dataset):
                 _, img = cap.read()
                 img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
                 images.append(img)
-                if pos in events[1:-1]:
-                    labels.append(np.where(events[1:-1] == pos)[0][0])
-                else:
-                    labels.append(8)
+                # if pos in events[1:-1]:
+                #     labels.append(np.where(events[1:-1] == pos)[0][0])
+                # else:
+                #     labels.append(8)
+                labels.append(club_idx)
             cap.release()
 
         sample = {'images':np.asarray(images), 'labels':np.asarray(labels)}

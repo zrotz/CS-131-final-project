@@ -8,7 +8,7 @@ import numpy as np
 from util import correct_preds
 
 
-def eval(model, split, seq_length, n_cpu, disp):
+def eval(model, split, seq_length, disp):
     dataset = GolfDB(data_file='data/val_split_{}.pkl'.format(split),
                      vid_dir='data/videos_160/',
                      seq_length=seq_length,
@@ -19,7 +19,6 @@ def eval(model, split, seq_length, n_cpu, disp):
     data_loader = DataLoader(dataset,
                              batch_size=1,
                              shuffle=False,
-                             num_workers=n_cpu,
                              drop_last=False)
 
     correct = []
@@ -51,12 +50,13 @@ if __name__ == '__main__':
 
     split = 1
     seq_length = 64
-    n_cpu = 6
+    device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
 
     model = EventDetector(pretrain=True,
                           width_mult=1.,
                           lstm_layers=1,
                           lstm_hidden=256,
+                          device=device,
                           bidirectional=True,
                           dropout=False)
 
@@ -64,7 +64,7 @@ if __name__ == '__main__':
     model.load_state_dict(save_dict['model_state_dict'])
     model.cuda()
     model.eval()
-    PCE = eval(model, split, seq_length, n_cpu, True)
+    PCE = eval(model, split, seq_length, True)
     print('Average PCE: {}'.format(PCE))
 
 
