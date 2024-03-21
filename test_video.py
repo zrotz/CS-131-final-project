@@ -31,7 +31,12 @@ class SampleVideo(Dataset):
 
     def __getitem__(self, idx):
         cap = cv2.VideoCapture(self.path)
+
+        if cap is None:
+          print('Wrong path:', self.path)
+
         frame_size = [cap.get(cv2.CAP_PROP_FRAME_HEIGHT), cap.get(cv2.CAP_PROP_FRAME_WIDTH)]
+        print(frame_size)
         ratio = self.input_size / max(frame_size)
         new_size = tuple([int(x * ratio) for x in frame_size])
         delta_w = self.input_size - new_size[1]
@@ -43,9 +48,13 @@ class SampleVideo(Dataset):
         images = []
         for pos in range(int(cap.get(cv2.CAP_PROP_FRAME_COUNT))):
             _, img = cap.read()
+
+            if img is None: # I added this line!!!
+              break
+              
             resized = cv2.resize(img, (new_size[1], new_size[0]))
             b_img = cv2.copyMakeBorder(resized, top, bottom, left, right, cv2.BORDER_CONSTANT,
-                                       value=[0.406 * 255, 0.456 * 255, 0.485 * 255])  # ImageNet means (BGR)
+                                        value=[0.406 * 255, 0.456 * 255, 0.485 * 255])  # ImageNet means (BGR)
 
             b_img_rgb = cv2.cvtColor(b_img, cv2.COLOR_BGR2RGB)
             images.append(b_img_rgb)
@@ -66,6 +75,8 @@ if __name__ == '__main__':
 
     print('Preparing video: {}'.format(args.path))
 
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
     ds = SampleVideo(args.path, transform=transforms.Compose([ToTensor(),
                                 Normalize([0.485, 0.456, 0.406],
                                           [0.229, 0.224, 0.225])]))
@@ -76,20 +87,24 @@ if __name__ == '__main__':
                           width_mult=1.,
                           lstm_layers=1,
                           lstm_hidden=256,
+                          device=device,
                           bidirectional=True,
                           dropout=False)
 
-    try:
-        save_dict = torch.load('models/swingnet_1800.pth.tar')
-    except:
-        print("Model weights not found. Download model weights and place in 'models' folder. See README for instructions")
+    # try:
+    folder = 'models/cnn_only'
+    save_dict = torch.load(f'{folder}/swingnet_2000.pth.tar', map_location=device)
+    # except:
+    #     print("Model weights not found. Download model weights and place in 'models' folder. See README for instructions")
 
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print('Using device:', device)
     model.load_state_dict(save_dict['model_state_dict'])
     model.to(device)
     model.eval()
     print("Loaded model weights")
+
+    i = 1
+    clubs = ['driver', 'fairway', 'hybrid', 'iron', 'wedge']
 
     print('Testing...')
     for sample in dl:
@@ -101,28 +116,15 @@ if __name__ == '__main__':
                 image_batch = images[:, batch * seq_length:, :, :, :]
             else:
                 image_batch = images[:, batch * seq_length:(batch + 1) * seq_length, :, :, :]
-            logits = model(image_batch.cuda())
+            logits = model(image_batch.to(device))
             if batch == 0:
                 probs = F.softmax(logits.data, dim=1).cpu().numpy()
             else:
                 probs = np.append(probs, F.softmax(logits.data, dim=1).cpu().numpy(), 0)
             batch += 1
 
-    events = np.argmax(probs, axis=0)[:-1]
-    print('Predicted event frames: {}'.format(events))
-    cap = cv2.VideoCapture(args.path)
-
-    confidence = []
-    for i, e in enumerate(events):
-        confidence.append(probs[e, i])
-    print('Condifence: {}'.format([np.round(c, 3) for c in confidence]))
-
-    for i, e in enumerate(events):
-        cap.set(cv2.CAP_PROP_POS_FRAMES, e)
-        _, img = cap.read()
-        cv2.putText(img, '{:.3f}'.format(confidence[i]), (20, 20), cv2.FONT_HERSHEY_DUPLEX, 0.75, (0, 0, 255))
-        cv2.imshow(event_names[i], img)
-        cv2.waitKey(0)
-        cv2.destroyAllWindows()
-
-
+        probs = np.asarray(probs)
+        guesses = np.argmax(probs, axis=1)
+        c = np.bincount(guesses).argmax()  # find most frequent guess
+        print(f"Predicted club for test video {i} = {clubs[c]}")
+        i += 1

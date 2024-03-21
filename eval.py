@@ -6,6 +6,7 @@ from dataloader import GolfDB, ToTensor, Normalize
 import torch.nn.functional as F
 import numpy as np
 from util import correct_preds
+from tqdm import tqdm
 
 
 def eval(model, split, seq_length, device, disp):
@@ -25,7 +26,7 @@ def eval(model, split, seq_length, device, disp):
     num_correct = 0
     total = 0
 
-    for i, sample in enumerate(data_loader):
+    for i, sample in tqdm(enumerate(data_loader)):
         images, labels = sample['images'], sample['labels']
         # full samples do not fit into GPU memory so evaluate sample in 'seq_length' batches
         batch = 0
@@ -45,20 +46,21 @@ def eval(model, split, seq_length, device, disp):
         labels = labels.squeeze().cpu().numpy()
         predictions = np.argmax(probs, axis=1)
         c = (predictions == labels)
-        if disp:
-            print(i, c)
+        # if disp:
+        #     print(i, c)
         # correct.append(c)
         num_correct += np.sum(c)
         total += labels.shape[0]
 
     # PCE = np.mean(correct)
     PCE = num_correct / total
+    print(PCE)
     return PCE
 
 
 if __name__ == '__main__':
 
-    split = 1
+    # split = 1
     seq_length = 64
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
 
@@ -70,11 +72,17 @@ if __name__ == '__main__':
                           bidirectional=True,
                           dropout=False)
 
-    save_dict = torch.load('models/swingnet_2000.pth.tar')
+    folder = 'models/cnn_only'
+    save_dict = torch.load(f'{folder}/swingnet_2000.pth.tar', map_location=device)
     model.load_state_dict(save_dict['model_state_dict'])
     model.to(device)
     model.eval()
-    PCE = eval(model, split, seq_length, device, True)
+
+    PCE_list = []
+    for i in range(1, 5):
+        PCE_list.append(eval(model, i, seq_length, device, True))
+
+    PCE = sum(PCE_list) / len(PCE_list)
     print('Average PCE: {}'.format(PCE))
 
 

@@ -6,6 +6,8 @@ from torch.utils.data import DataLoader
 from torchvision import transforms
 import os
 from tqdm import tqdm
+from MobileNetV2 import MobileNetV2
+
 
 
 if __name__ == '__main__':
@@ -18,6 +20,7 @@ if __name__ == '__main__':
     bs = 22  # batch size
     k = 10  # frozen layers
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
+    print("Using device = ", device)
 
     model = EventDetector(pretrain=True,
                           width_mult=1.,
@@ -51,8 +54,9 @@ if __name__ == '__main__':
 
     losses = AverageMeter()
 
-    if not os.path.exists('models'):
-        os.mkdir('models')
+    folder = 'models/cnn_only'
+    if not os.path.exists(folder):
+        os.mkdir(folder)
 
 
     i = 0
@@ -75,7 +79,7 @@ if __name__ == '__main__':
             if i % it_save == 0:
                 print("Saving model")
                 torch.save({'optimizer_state_dict': optimizer.state_dict(),
-                            'model_state_dict': model.state_dict()}, 'models/swingnet_{}.pth.tar'.format(i))
+                            'model_state_dict': model.state_dict()}, f'{folder}/swingnet_{i}.pth.tar')
             if i == iterations:
                 break
 
