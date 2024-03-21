@@ -1,1 +1,1 @@
-This is my CS 131 final project.  It largely builds off of GolfDB and SwingNet, which can be found here: https://github.com/wmcnally/golfdb.
+This is my CS 131 final project.  It largely builds off of GolfDB and SwingNet, which can be found here: https://github.com/wmcnally/golfdb, in order to build a golf club classifier.
