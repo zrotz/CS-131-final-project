@@ -22,7 +22,6 @@ def eval(model, split, seq_length, device, disp):
                              shuffle=False,
                              drop_last=False)
 
-    # correct = []
     num_correct = 0
     total = 0
 
@@ -41,14 +40,10 @@ def eval(model, split, seq_length, device, disp):
             else:
                 probs = np.append(probs, F.softmax(logits.data, dim=1).cpu().numpy(), 0)
             batch += 1
-        # _, _, _, _, c = correct_preds(probs, labels.squeeze())
         probs = np.asarray(probs)
         labels = labels.squeeze().cpu().numpy()
         predictions = np.argmax(probs, axis=1)
         c = (predictions == labels)
-        # if disp:
-        #     print(i, c)
-        # correct.append(c)
         num_correct += np.sum(c)
         total += labels.shape[0]
 
